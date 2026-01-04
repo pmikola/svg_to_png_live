@@ -49,6 +49,8 @@ class SettingsDialog(QDialog):
         self.setWindowTitle("Settings")
         self.setModal(True)
 
+        self._allow_close_without_accept = False
+
         self._original = config
         self._working = replace(config)
 
@@ -115,7 +117,7 @@ class SettingsDialog(QDialog):
 
         buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         buttons.accepted.connect(self.accept)
-        buttons.rejected.connect(self.reject)
+        buttons.rejected.connect(self._on_cancel)
 
         err = QLabel("")
         err.setTextInteractionFlags(Qt.TextSelectableByMouse)
@@ -133,6 +135,10 @@ class SettingsDialog(QDialog):
 
         self._save_enabled.toggled.connect(self._sync_save_enabled_ui)
         self._sync_save_enabled_ui(self._save_enabled.isChecked())
+
+    def _on_cancel(self) -> None:
+        self._allow_close_without_accept = True
+        super().reject()
 
     def result_config(self) -> AppConfig:
         return self._working
@@ -182,5 +188,14 @@ class SettingsDialog(QDialog):
             return
 
         super().accept()
+
+    def closeEvent(self, event) -> None:  # type: ignore[override]
+        # Treat window close (X) as an implicit "OK" to reduce accidental loss of settings.
+        # Explicit "Cancel" still discards changes.
+        if self._allow_close_without_accept:
+            event.accept()
+            return
+        event.ignore()
+        self.accept()
 
 

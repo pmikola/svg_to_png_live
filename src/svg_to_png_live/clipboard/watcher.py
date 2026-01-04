@@ -60,7 +60,8 @@ class ClipboardWatcher(QObject):
 
         self._cfg = config
         self._clipboard = QGuiApplication.clipboard()
-        self._pool = QThreadPool.globalInstance()
+        self._pool = QThreadPool(self)
+        self._pool.setMaxThreadCount(1)
 
         self._debounce = QTimer(self)
         self._debounce.setSingleShot(True)
@@ -70,6 +71,8 @@ class ClipboardWatcher(QObject):
         self._pending_svg: str | None = None
         self._last_processed_hash: str | None = None
         self._ignore_until: float = 0.0
+        self._in_flight: bool = False
+        self._rerun_after_flight: bool = False
 
         self._converter: Optional[Callable[[str], ConversionResult]] = None
 
@@ -99,6 +102,7 @@ class ClipboardWatcher(QObject):
             pass
         self._pending_svg = None
         self._debounce.stop()
+        self._in_flight = False
         self.info.emit("Stopped")
 
     def suppress_events_for(self, seconds: float = 0.3) -> None:
@@ -137,6 +141,10 @@ class ClipboardWatcher(QObject):
             return
         if self._pending_svg is None:
             return
+        if self._in_flight:
+            # Avoid piling up conversions and spiking CPU; the latest SVG remains in _pending_svg.
+            self._rerun_after_flight = True
+            return
 
         mime = self._clipboard.mimeData()
         if mime is None or not mime.hasText():
@@ -153,17 +161,33 @@ class ClipboardWatcher(QObject):
             self.error.emit("Converter is not configured.")
             return
 
+        self._in_flight = True
         worker = _ConvertWorker(current, self._converter)
         worker.signals.finished.connect(self._on_worker_finished)
         worker.signals.failed.connect(self._on_worker_failed)
         self._pool.start(worker)
 
     def _on_worker_failed(self, message: str) -> None:
+        self._in_flight = False
         self.error.emit(message)
+        self._maybe_rerun_latest()
 
     def _on_worker_finished(self, result: ConversionResult) -> None:
+        self._in_flight = False
         self._last_processed_hash = result.svg_hash
         self.converted.emit(result)
+        self._maybe_rerun_latest()
+
+    def _maybe_rerun_latest(self) -> None:
+        if not self._running:
+            self._rerun_after_flight = False
+            return
+        if not self._rerun_after_flight:
+            return
+        self._rerun_after_flight = False
+        # Re-check clipboard immediately; if it still contains SVG markup, convert once more.
+        self._debounce.start(0)
+
 
 
 

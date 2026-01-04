@@ -46,3 +46,4 @@ def normalize_svg_markup(text: str) -> str | None:
 
 
 
+

@@ -126,11 +126,18 @@ class ResvgRenderer:
 
             args += [str(in_svg), str(out_png)]
 
+            creationflags = 0
+            if sys.platform.startswith("win"):
+                # Prevent console window flashes and keep CPU usage less disruptive.
+                creationflags |= getattr(subprocess, "CREATE_NO_WINDOW", 0)
+                creationflags |= getattr(subprocess, "BELOW_NORMAL_PRIORITY_CLASS", 0)
+
             try:
                 p = subprocess.run(
                     args,
                     capture_output=True,
                     timeout=float(timeout_s),
+                    creationflags=creationflags,
                 )
             except subprocess.TimeoutExpired as e:
                 raise RuntimeError(

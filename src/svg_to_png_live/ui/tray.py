@@ -12,6 +12,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from PySide6.QtCore import QObject, Signal, QUrl
+from PySide6.QtCore import QSignalBlocker
 from PySide6.QtGui import QAction, QDesktopServices, QIcon
 from PySide6.QtWidgets import QMenu, QStyle, QSystemTrayIcon, QWidget
 
@@ -68,7 +69,8 @@ class TrayController(QObject):
 
     def set_listening(self, enabled: bool) -> None:
         if self._listen_action.isChecked() != enabled:
-            self._listen_action.setChecked(enabled)
+            with QSignalBlocker(self._listen_action):
+                self._listen_action.setChecked(enabled)
 
     def set_save_dir(self, *, enabled: bool, path: str) -> None:
         if enabled and path:
@@ -97,6 +99,7 @@ class TrayController(QObject):
         if self._save_dir is None:
             return
         QDesktopServices.openUrl(QUrl.fromLocalFile(str(self._save_dir)))
+
 
 
 
