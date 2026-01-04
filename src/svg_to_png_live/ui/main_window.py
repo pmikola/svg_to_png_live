@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from PySide6.QtCore import Signal
+from PySide6.QtCore import Signal, QSignalBlocker
 from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
@@ -58,7 +58,8 @@ class MainWindow(QMainWindow):
 
     def set_listening(self, enabled: bool) -> None:
         if self._listen_btn.isChecked() != enabled:
-            self._listen_btn.setChecked(enabled)
+            with QSignalBlocker(self._listen_btn):
+                self._listen_btn.setChecked(enabled)
         self._status.setText("Listening" if enabled else "Stopped")
 
     def set_status_text(self, text: str) -> None:

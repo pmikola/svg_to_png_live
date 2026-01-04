@@ -16,8 +16,8 @@ env/
 Thumbs.db
 
 # Build artifacts
-build/
-dist/
+build*/
+dist*/
 *.spec
 
 # Local config/logs
@@ -25,5 +25,6 @@ dist/
 
 # Vendor binaries (downloaded by script)
 vendor/resvg/win64/resvg.exe
+
 
 

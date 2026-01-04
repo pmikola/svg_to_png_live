@@ -27,3 +27,4 @@ def test_conversion_produces_png_header() -> None:
     assert result.height_px == 10
 
 
+

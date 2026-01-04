@@ -99,3 +99,4 @@ class TrayController(QObject):
         QDesktopServices.openUrl(QUrl.fromLocalFile(str(self._save_dir)))
 
 
+

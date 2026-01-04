@@ -24,3 +24,4 @@ def test_compute_output_px_dpi_scaling_and_clamp() -> None:
     assert max(w2, h2) == 120
 
 
+

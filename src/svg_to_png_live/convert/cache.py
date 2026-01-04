@@ -40,3 +40,4 @@ class LruCache(Generic[K, V]):
                 self._data.popitem(last=False)
 
 
+

@@ -15,3 +15,4 @@ def test_atomic_write_bytes(tmp_path: Path) -> None:
     assert out.read_bytes() == b"123"
 
 
+

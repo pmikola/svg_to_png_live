@@ -166,3 +166,4 @@ class ClipboardWatcher(QObject):
         self.converted.emit(result)
 
 
+

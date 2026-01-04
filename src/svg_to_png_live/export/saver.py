@@ -87,3 +87,4 @@ class PngAutoSaver(QObject):
         self._pool.start(worker)
 
 
+

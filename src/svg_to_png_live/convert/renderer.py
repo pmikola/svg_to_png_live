@@ -126,11 +126,17 @@ class ResvgRenderer:
 
             args += [str(in_svg), str(out_png)]
 
-            p = subprocess.run(
-                args,
-                capture_output=True,
-                timeout=float(timeout_s),
-            )
+            try:
+                p = subprocess.run(
+                    args,
+                    capture_output=True,
+                    timeout=float(timeout_s),
+                )
+            except subprocess.TimeoutExpired as e:
+                raise RuntimeError(
+                    f"SVG render timed out after {timeout_s:.1f}s. "
+                    "Increase 'Conversion timeout (s)' in Settings → Advanced."
+                ) from e
             if p.returncode != 0 or not out_png.exists():
                 stderr = (p.stderr or b"").decode("utf-8", errors="replace")
                 stdout = (p.stdout or b"").decode("utf-8", errors="replace")

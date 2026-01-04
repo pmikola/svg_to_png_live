@@ -18,3 +18,4 @@ def test_svg_detection_reject_non_svg() -> None:
     assert normalize_svg_markup("hello") is None
 
 
+

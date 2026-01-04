@@ -55,6 +55,13 @@ Optional single-file build:
 powershell -ExecutionPolicy Bypass -File scripts\\build_win.ps1 -OneFile
 ```
 
+If you are currently running an older build from `dist\\`, Windows may lock that folder.
+Build into a new folder:
+
+```bash
+powershell -ExecutionPolicy Bypass -File scripts\\build_win.ps1 -DistDir dist2
+```
+
 Optional custom executable icon:
 
 - Place `assets\\app.ico` before building.

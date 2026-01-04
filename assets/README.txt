@@ -4,3 +4,4 @@ Path expected by build script:
 - `assets\\app.ico`
 
 
+

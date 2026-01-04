@@ -45,7 +45,7 @@ class AppConfig:
     save_dir: str = ""
 
     debounce_ms: int = 200
-    conversion_timeout_s: float = 4.0
+    conversion_timeout_s: float = 10.0
     max_svg_chars: int = 5_000_000
     max_output_dim_px: int = 8192
 
@@ -92,5 +92,6 @@ class AppConfig:
         path = get_config_path()
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(self.to_dict(), indent=2), encoding="utf-8")
+
 
 

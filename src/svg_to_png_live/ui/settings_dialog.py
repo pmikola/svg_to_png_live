@@ -13,6 +13,7 @@ from PySide6.QtWidgets import (
     QColorDialog,
     QDialog,
     QDialogButtonBox,
+    QDoubleSpinBox,
     QFileDialog,
     QFormLayout,
     QGroupBox,
@@ -98,6 +99,12 @@ class SettingsDialog(QDialog):
         self._max_dim.setValue(int(self._working.max_output_dim_px))
         adv_form.addRow("Max output dimension (px)", self._max_dim)
 
+        self._timeout_s = QDoubleSpinBox()
+        self._timeout_s.setRange(0.5, 120.0)
+        self._timeout_s.setSingleStep(0.5)
+        self._timeout_s.setValue(float(self._working.conversion_timeout_s))
+        adv_form.addRow("Conversion timeout (s)", self._timeout_s)
+
         self._adv_group.setLayout(adv_form)
 
         form = QFormLayout()
@@ -166,6 +173,7 @@ class SettingsDialog(QDialog):
             self._working.debounce_ms = int(self._debounce.value())
             self._working.max_svg_chars = int(self._max_svg.value())
             self._working.max_output_dim_px = int(self._max_dim.value())
+            self._working.conversion_timeout_s = float(self._timeout_s.value())
 
             if self._working.save_enabled and not self._working.save_dir:
                 raise ValueError("Auto-save is enabled, but no output folder is selected.")
