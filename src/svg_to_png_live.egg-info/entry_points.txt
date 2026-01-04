@@ -1,0 +1,2 @@
+[console_scripts]
+svg-to-png-live = svg_to_png_live.main:main

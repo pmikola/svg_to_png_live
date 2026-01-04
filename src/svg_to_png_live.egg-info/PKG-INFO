@@ -1,0 +1,55 @@
+Metadata-Version: 2.4
+Name: svg-to-png-live
+Version: 0.1.0
+Summary: Clipboard SVG to PNG converter (Windows tray app)
+Author: NeuroMorph
+License: Proprietary
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+Requires-Dist: PySide6>=6.7.0
+Requires-Dist: Pillow>=10.3.0
+Provides-Extra: dev
+Requires-Dist: pytest>=8.0.0; extra == "dev"
+Requires-Dist: pyinstaller>=6.3.0; extra == "dev"
+
+## svg-to-png-live
+
+Windows utility that monitors the clipboard for **SVG markup text**, converts it to **PNG** with configured settings (background color + DPI), replaces the clipboard with the PNG image for paste-anywhere, and optionally auto-saves PNGs to disk.
+
+### Requirements
+
+- Python 3.11+
+- Windows 11 (v1 target)
+- `resvg.exe` (bundled for production builds; see below)
+
+### Run (dev)
+
+```bash
+python -m venv .venv
+.venv\\Scripts\\activate
+python -m pip install -e .[dev]
+svg-to-png-live
+```
+
+### `resvg.exe`
+
+The converter expects a `resvg.exe` binary at:
+
+- `vendor/resvg/win64/resvg.exe`
+
+You can also point to a custom location with environment variable:
+
+- `SVG_TO_PNG_LIVE_RESVG_PATH`
+
+### Build Windows `.exe` (PyInstaller)
+
+The build bundles `resvg.exe` and produces a distributable executable.
+
+```bash
+python -m pip install -e .[dev]
+powershell -ExecutionPolicy Bypass -File scripts\\build_win.ps1
+```
+
+- Output: `dist\\SvgToPngLive\\SvgToPngLive.exe` (folder build)\n+- Optional single-file build:\n+\n+```bash\n+powershell -ExecutionPolicy Bypass -File scripts\\build_win.ps1 -OneFile\n+```\n+\n+Optional custom executable icon:\n+- Place `assets\\app.ico` before building.
+
+
