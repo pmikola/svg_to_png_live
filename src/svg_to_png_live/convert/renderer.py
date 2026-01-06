@@ -235,7 +235,16 @@ class SvgToPngConverter:
         if cache is not None:
             cache.put(cache_key, (composed, width_px, height_px))
 
-        self._log.info("converted svg_hash=%s ms=%.1f w=%d h=%d", svg_hash[:10], dt_ms, width_px, height_px)
+        self._log.info(
+            "converted svg_hash=%s ms=%.1f w=%d h=%d dpi=%d bg=%s timeout=%.1fs",
+            svg_hash[:10],
+            dt_ms,
+            width_px,
+            height_px,
+            int(cfg.dpi),
+            cfg.background_hex,
+            float(cfg.conversion_timeout_s),
+        )
         return ConversionResult(
             svg_hash=svg_hash,
             png_bytes=composed,

@@ -108,3 +108,4 @@ def compute_output_px(svg_text: str, *, dpi: int, max_dim_px: int) -> tuple[int,
 
 
 
+

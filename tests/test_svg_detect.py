@@ -20,3 +20,4 @@ def test_svg_detection_reject_non_svg() -> None:
 
 
 
+

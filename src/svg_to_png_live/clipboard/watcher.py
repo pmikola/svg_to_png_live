@@ -69,7 +69,6 @@ class ClipboardWatcher(QObject):
 
         self._running = False
         self._pending_svg: str | None = None
-        self._last_processed_hash: str | None = None
         self._ignore_until: float = 0.0
         self._in_flight: bool = False
         self._rerun_after_flight: bool = False
@@ -153,10 +152,6 @@ class ClipboardWatcher(QObject):
         if current is None or current != self._pending_svg:
             return
 
-        svg_hash = hashlib.sha256(current.encode("utf-8")).hexdigest()
-        if svg_hash == self._last_processed_hash:
-            return
-
         if self._converter is None:
             self.error.emit("Converter is not configured.")
             return
@@ -174,7 +169,6 @@ class ClipboardWatcher(QObject):
 
     def _on_worker_finished(self, result: ConversionResult) -> None:
         self._in_flight = False
-        self._last_processed_hash = result.svg_hash
         self.converted.emit(result)
         self._maybe_rerun_latest()
 

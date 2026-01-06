@@ -5,9 +5,9 @@ from __future__ import annotations
 import logging
 from typing import Optional
 
-from PySide6.QtCore import QObject
+from PySide6.QtCore import QObject, QLockFile
 from PySide6.QtGui import QGuiApplication, QImage
-from PySide6.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication, QMessageBox
 
 from svg_to_png_live.config import AppConfig, get_config_path
 from svg_to_png_live.clipboard.watcher import ClipboardWatcher, ConversionResult
@@ -42,6 +42,14 @@ class AppController(QObject):
         self._log = logging.getLogger("svg_to_png_live")
 
         self._config = AppConfig.load()
+        self._log.info(
+            "config_loaded dpi=%s bg=%s timeout=%.1fs save_enabled=%s save_dir=%s",
+            self._config.dpi,
+            self._config.background_hex,
+            float(self._config.conversion_timeout_s),
+            bool(self._config.save_enabled),
+            self._config.save_dir,
+        )
 
         self._window = MainWindow()
         self._window.set_listening(bool(self._config.listen_enabled))
@@ -88,18 +96,35 @@ class AppController(QObject):
         self._log.info("listen=%s", enabled)
 
     def _open_settings(self) -> None:
-        dlg = SettingsDialog(self._config, parent=self._window)
-        if dlg.exec() == dlg.Accepted:
-            self._config = dlg.result_config()
-            self._config.save()
-            self._window.set_listening(bool(self._config.listen_enabled))
-            self._tray.set_listening(bool(self._config.listen_enabled))
-            self._tray.set_save_dir(enabled=bool(self._config.save_enabled), path=self._config.save_dir)
-            self._watcher.set_config(self._config)
-            if self._converter is not None:
-                self._converter.set_config(self._config)
-            self._saver.set_config(self._config)
-            self._log.info("settings_updated")
+        # Use no parent so the dialog always shows, even when the main window is hidden to tray.
+        self._log.info("settings_opened")
+        dlg = SettingsDialog(self._config, parent=None)
+        result = int(dlg.exec())
+        self._log.info("settings_closed result=%s", result)
+
+        # SettingsDialog is designed to always Save on close (no cancel paths).
+        # Apply whatever is currently in the dialog model.
+        self._config = dlg.result_config()
+        self._config.save()
+        self._window.set_listening(bool(self._config.listen_enabled))
+        self._tray.set_listening(bool(self._config.listen_enabled))
+        self._tray.set_save_dir(enabled=bool(self._config.save_enabled), path=self._config.save_dir)
+        self._watcher.set_config(self._config)
+        if self._converter is not None:
+            self._converter.set_config(self._config)
+        self._saver.set_config(self._config)
+        self._log.info(
+            "settings_applied dpi=%s bg=%s timeout=%.1fs save_enabled=%s save_dir=%s",
+            self._config.dpi,
+            self._config.background_hex,
+            float(self._config.conversion_timeout_s),
+            bool(self._config.save_enabled),
+            self._config.save_dir,
+        )
+        self._tray.notify_info(
+            "SVG → PNG Live",
+            f"Settings saved: DPI={self._config.dpi}, BG={self._config.background_hex}, timeout={float(self._config.conversion_timeout_s):.1f}s",
+        )
 
     def _init_converter(self) -> None:
         try:
@@ -166,6 +191,29 @@ def run_app() -> None:
 
     app = QApplication([])
     app.setQuitOnLastWindowClosed(False)
+
+    lock_path = get_config_path().parent / "instance.lock"
+    lock = QLockFile(str(lock_path))
+    lock.setStaleLockTime(10_000)
+    if not lock.tryLock(0):
+        # If a previous run crashed, attempt to clear the stale lock file once.
+        try:
+            if lock.removeStaleLockFile() and lock.tryLock(0):
+                pass
+            else:
+                QMessageBox.information(
+                    None,
+                    "SVG → PNG Live",
+                    "SVG → PNG Live is already running.\n\nCheck the system tray (near the clock).",
+                )
+                raise SystemExit(0)
+        except Exception:
+            QMessageBox.information(
+                None,
+                "SVG → PNG Live",
+                "SVG → PNG Live is already running.\n\nCheck the system tray (near the clock).",
+            )
+            raise SystemExit(0)
 
     _ = AppController()
     raise SystemExit(app.exec())

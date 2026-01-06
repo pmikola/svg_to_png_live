@@ -37,18 +37,18 @@ class TrayController(QObject):
         self._listen_action.toggled.connect(self.toggle_listen_requested)
 
         self._show_action = QAction("Show", menu)
-        self._show_action.triggered.connect(self.show_window_requested)
+        self._show_action.triggered.connect(lambda _checked=False: self.show_window_requested.emit())
 
         self._settings_action = QAction("Settings", menu)
-        self._settings_action.triggered.connect(self.open_settings_requested)
+        self._settings_action.triggered.connect(lambda _checked=False: self.open_settings_requested.emit())
 
         self._open_save_dir_action = QAction("Open Save Folder", menu)
-        self._open_save_dir_action.triggered.connect(self._open_save_dir)
+        self._open_save_dir_action.triggered.connect(lambda _checked=False: self._open_save_dir())
         self._open_save_dir_action.setEnabled(False)
         self._save_dir: Path | None = None
 
         self._exit_action = QAction("Exit", menu)
-        self._exit_action.triggered.connect(self.exit_requested)
+        self._exit_action.triggered.connect(lambda _checked=False: self.exit_requested.emit())
 
         menu.addAction(self._listen_action)
         menu.addSeparator()

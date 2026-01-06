@@ -49,8 +49,6 @@ class SettingsDialog(QDialog):
         self.setWindowTitle("Settings")
         self.setModal(True)
 
-        self._allow_close_without_accept = False
-
         self._original = config
         self._working = replace(config)
 
@@ -115,9 +113,13 @@ class SettingsDialog(QDialog):
         form.addRow("", self._save_enabled)
         form.addRow("Save folder", save_row)
 
-        buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        # This app is a background utility; users expect settings changes to take effect immediately.
+        # We intentionally avoid a "Cancel" path that silently discards changes.
+        buttons = QDialogButtonBox(QDialogButtonBox.Ok)
+        ok_btn = buttons.button(QDialogButtonBox.Ok)
+        if ok_btn is not None:
+            ok_btn.setText("Save")
         buttons.accepted.connect(self.accept)
-        buttons.rejected.connect(self._on_cancel)
 
         err = QLabel("")
         err.setTextInteractionFlags(Qt.TextSelectableByMouse)
@@ -135,10 +137,6 @@ class SettingsDialog(QDialog):
 
         self._save_enabled.toggled.connect(self._sync_save_enabled_ui)
         self._sync_save_enabled_ui(self._save_enabled.isChecked())
-
-    def _on_cancel(self) -> None:
-        self._allow_close_without_accept = True
-        super().reject()
 
     def result_config(self) -> AppConfig:
         return self._working
@@ -189,12 +187,11 @@ class SettingsDialog(QDialog):
 
         super().accept()
 
+    def reject(self) -> None:
+        # Treat any rejection path (e.g. Esc key) as Save for this utility app.
+        self.accept()
+
     def closeEvent(self, event) -> None:  # type: ignore[override]
-        # Treat window close (X) as an implicit "OK" to reduce accidental loss of settings.
-        # Explicit "Cancel" still discards changes.
-        if self._allow_close_without_accept:
-            event.accept()
-            return
         event.ignore()
         self.accept()
 

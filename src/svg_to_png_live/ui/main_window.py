@@ -33,10 +33,10 @@ class MainWindow(QMainWindow):
         self._listen_btn.toggled.connect(self.listen_toggled)
 
         self._settings_btn = QPushButton("Settings")
-        self._settings_btn.clicked.connect(self.settings_requested)
+        self._settings_btn.clicked.connect(lambda _checked=False: self.settings_requested.emit())
 
         self._exit_btn = QPushButton("Exit")
-        self._exit_btn.clicked.connect(self.exit_requested)
+        self._exit_btn.clicked.connect(lambda _checked=False: self.exit_requested.emit())
 
         self._status = QLabel("Stopped")
 
