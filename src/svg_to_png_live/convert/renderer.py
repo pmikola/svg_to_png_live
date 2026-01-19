@@ -59,6 +59,75 @@ def inject_solid_background(svg_text: str, *, background_hex: str) -> str:
     return svg_text[: end + 1] + rect + svg_text[end + 1 :]
 
 
+def trim_png_border(
+    png_bytes: bytes,
+    *,
+    background_hex: str,
+    tolerance: int,
+) -> tuple[bytes, int, int]:
+    """Crop away solid-background padding around content.
+
+    This targets common cases where SVGs include margins in the viewBox (e.g. Mermaid),
+    leading to unwanted borders in the rasterized output.
+    """
+    tol = max(0, min(255, int(tolerance)))
+    bg = _parse_hex_rgb(background_hex)
+
+    with Image.open(BytesIO(png_bytes)) as im:
+        rgb = im.convert("RGB")
+        w, h = rgb.size
+        if w <= 2 or h <= 2:
+            return png_bytes, w, h
+
+        # Downsample for scanning performance on very large images.
+        max_probe = 1024
+        scale = max(1, max(w, h) // max_probe)
+        sw = max(1, w // scale)
+        sh = max(1, h // scale)
+        small = rgb.resize((sw, sh), resample=Image.Resampling.BOX)
+        data = list(small.getdata())
+
+        def is_bg(px: tuple[int, int, int]) -> bool:
+            return (
+                abs(px[0] - bg[0]) <= tol
+                and abs(px[1] - bg[1]) <= tol
+                and abs(px[2] - bg[2]) <= tol
+            )
+
+        min_x, min_y = sw, sh
+        max_x, max_y = -1, -1
+        for idx, px in enumerate(data):
+            if is_bg(px):
+                continue
+            y, x = divmod(idx, sw)
+            if x < min_x:
+                min_x = x
+            if y < min_y:
+                min_y = y
+            if x > max_x:
+                max_x = x
+            if y > max_y:
+                max_y = y
+
+        if max_x < 0 or max_y < 0:
+            return png_bytes, w, h
+
+        # Map back to original coordinates and add a small padding to avoid cropping antialiased edges.
+        pad = max(1, scale)
+        left = max(0, min_x * scale - pad)
+        top = max(0, min_y * scale - pad)
+        right = min(w, (max_x + 1) * scale + pad)
+        bottom = min(h, (max_y + 1) * scale + pad)
+
+        if left == 0 and top == 0 and right == w and bottom == h:
+            return png_bytes, w, h
+
+        cropped = im.crop((left, top, right, bottom))
+        buf = BytesIO()
+        cropped.save(buf, format="PNG")
+        out = buf.getvalue()
+        return out, int(right - left), int(bottom - top)
+
 def _resource_base_dir() -> Path:
     if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
         return Path(getattr(sys, "_MEIPASS"))
@@ -257,6 +326,13 @@ class SvgToPngConverter:
                 dpi=int(cfg.dpi),
                 timeout_s=float(cfg.conversion_timeout_s),
             )
+
+            if bool(getattr(cfg, "trim_border", False)):
+                composed, render_w, render_h = trim_png_border(
+                    composed,
+                    background_hex=cfg.background_hex,
+                    tolerance=int(getattr(cfg, "trim_tolerance", 8)),
+                )
 
             if max_png_bytes <= 0 or len(composed) <= max_png_bytes:
                 break

@@ -116,6 +116,15 @@ class SettingsDialog(QDialog):
         self._max_png_mb.setValue(float(self._working.max_output_png_bytes) / (1024.0 * 1024.0))
         adv_form.addRow("Max output PNG size (MB)", self._max_png_mb)
 
+        self._trim_border = QCheckBox("Trim border (crop to content)")
+        self._trim_border.setChecked(bool(self._working.trim_border))
+        adv_form.addRow("", self._trim_border)
+
+        self._trim_tol = QSpinBox()
+        self._trim_tol.setRange(0, 64)
+        self._trim_tol.setValue(int(self._working.trim_tolerance))
+        adv_form.addRow("Trim tolerance (0-64)", self._trim_tol)
+
         self._adv_group.setLayout(adv_form)
 
         form = QFormLayout()
@@ -190,6 +199,8 @@ class SettingsDialog(QDialog):
             self._working.max_output_dim_px = int(self._max_dim.value())
             self._working.conversion_timeout_s = float(self._timeout_s.value())
             self._working.max_output_png_bytes = int(round(float(self._max_png_mb.value()) * 1024.0 * 1024.0))
+            self._working.trim_border = bool(self._trim_border.isChecked())
+            self._working.trim_tolerance = int(self._trim_tol.value())
 
             if self._working.max_output_dim_px != 0 and self._working.max_output_dim_px < 512:
                 raise ValueError("Max output dimension must be 0 (Unlimited) or at least 512 px.")

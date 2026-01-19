@@ -55,6 +55,9 @@ class AppConfig:
     # 0 disables size limiting. If set, the converter will downscale as needed to keep
     # the final PNG at or below this byte size.
     max_output_png_bytes: int = 0
+    # Optional post-processing to remove padded borders (common in Mermaid SVGs due to viewBox margins).
+    trim_border: bool = False
+    trim_tolerance: int = 8
 
     cache_enabled: bool = True
     cache_max_items: int = 128
@@ -71,6 +74,8 @@ class AppConfig:
             "max_svg_chars": self.max_svg_chars,
             "max_output_dim_px": self.max_output_dim_px,
             "max_output_png_bytes": self.max_output_png_bytes,
+            "trim_border": self.trim_border,
+            "trim_tolerance": self.trim_tolerance,
             "cache_enabled": self.cache_enabled,
             "cache_max_items": self.cache_max_items,
         }
