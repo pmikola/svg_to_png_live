@@ -89,8 +89,9 @@ class SettingsDialog(QDialog):
         adv_form.addRow("Debounce (ms)", self._debounce)
 
         self._max_svg = QSpinBox()
-        self._max_svg.setRange(10_000, 20_000_000)
-        self._max_svg.setSingleStep(100_000)
+        # Some SVGs embed base64 images and can be very large; allow users to raise the cap.
+        self._max_svg.setRange(10_000, 200_000_000)
+        self._max_svg.setSingleStep(1_000_000)
         self._max_svg.setValue(int(self._working.max_svg_chars))
         adv_form.addRow("Max SVG size (chars)", self._max_svg)
 

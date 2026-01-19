@@ -46,7 +46,9 @@ class AppConfig:
 
     debounce_ms: int = 200
     conversion_timeout_s: float = 10.0
-    max_svg_chars: int = 5_000_000
+    # Large SVGs can legitimately embed base64 images and exceed tens of MB.
+    # This limit exists to protect responsiveness; users can raise it in Settings → Advanced.
+    max_svg_chars: int = 50_000_000
     max_output_dim_px: int = 8192
 
     cache_enabled: bool = True

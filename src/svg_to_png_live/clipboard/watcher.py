@@ -124,8 +124,17 @@ class ClipboardWatcher(QObject):
         raw_text = mime.text()
         if not raw_text:
             return
-        if len(raw_text) > int(self._cfg.max_svg_chars):
-            self._log.info("clipboard_text_too_large chars=%d", len(raw_text))
+        max_chars = int(self._cfg.max_svg_chars)
+        if len(raw_text) > max_chars:
+            # Avoid silently doing nothing; users interpret this as "blank" output.
+            # Only surface an error if this looks like SVG markup.
+            lowered = raw_text[:4096].lower()
+            if "<svg" in lowered or "</svg" in lowered:
+                self.error.emit(
+                    f"SVG is too large for conversion ({len(raw_text)} chars). "
+                    f"Increase 'Max SVG size (chars)' in Settings → Advanced (current: {max_chars})."
+                )
+            self._log.info("clipboard_text_too_large chars=%d max=%d", len(raw_text), max_chars)
             return
 
         svg = normalize_svg_markup(raw_text)
