@@ -149,6 +149,12 @@ class ResvgRenderer:
                 stdout = (p.stdout or b"").decode("utf-8", errors="replace")
                 raise RuntimeError(f"resvg failed (code={p.returncode}): {stderr or stdout}".strip())
 
+            if out_png.stat().st_size <= 0:
+                raise RuntimeError(
+                    "Renderer produced an empty PNG file. "
+                    "This SVG may be unsupported or exceeded renderer limits."
+                )
+
             return out_png.read_bytes()
 
 

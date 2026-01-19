@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from typing import Optional
 
-from PySide6.QtCore import QObject, QLockFile
+from PySide6.QtCore import QObject, QLockFile, QMimeData
 from PySide6.QtGui import QGuiApplication, QImage
 from PySide6.QtWidgets import QApplication, QMessageBox
 
@@ -169,7 +169,10 @@ class AppController(QObject):
 
         # Prevent clipboard rewrite loops (Qt emits dataChanged for our own write).
         self._watcher.suppress_events_for(0.5)
-        QGuiApplication.clipboard().setImage(img)
+        mime = QMimeData()
+        mime.setData("image/png", png_bytes)
+        mime.setImageData(img)
+        QGuiApplication.clipboard().setMimeData(mime)
         return True
 
     def _on_saved(self, path: str) -> None:
