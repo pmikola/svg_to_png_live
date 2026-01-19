@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import sys
 from typing import Optional
 
 from PySide6.QtCore import QObject, QLockFile, QMimeData
@@ -162,18 +163,59 @@ class AppController(QObject):
         self._saver.save_async(png_bytes=result.png_bytes, svg_hash=result.svg_hash)
 
     def _write_png_to_clipboard(self, png_bytes: bytes) -> bool:
-        img = QImage.fromData(png_bytes, "PNG")
-        if img.isNull():
-            self._on_error("Failed to load PNG bytes into QImage.")
-            return False
+        width_px, height_px = self._parse_png_dimensions(png_bytes)
 
         # Prevent clipboard rewrite loops (Qt emits dataChanged for our own write).
         self._watcher.suppress_events_for(0.5)
+
+        # For very large images, setting an uncompressed bitmap (DIB) on the clipboard can
+        # allocate hundreds of MB and cause silent paste failures. Prefer a PNG clipboard
+        # format for large outputs; add DIB only when reasonably sized.
+        max_dib_bytes = 64 * 1024 * 1024
+        expected_dib_bytes = int(width_px) * int(height_px) * 4 if width_px and height_px else 0
+
+        if sys.platform.startswith("win"):
+            try:
+                from svg_to_png_live.clipboard.win_clipboard import set_windows_clipboard_png
+
+                stats = set_windows_clipboard_png(
+                    png_bytes,
+                    width_px=int(width_px),
+                    height_px=int(height_px),
+                    dpi=int(self._config.dpi),
+                    also_set_dibv5=True,
+                    max_dibv5_bytes=max_dib_bytes,
+                )
+                self._log.info("clipboard_written png=%s dibv5=%s", stats.wrote_png, stats.wrote_dibv5)
+                return True
+            except Exception as e:
+                # Fallback to Qt clipboard if WinAPI path fails (clipboard busy, etc.).
+                self._log.warning("win_clipboard_failed=%s", e)
+
         mime = QMimeData()
         mime.setData("image/png", png_bytes)
-        mime.setImageData(img)
+        if expected_dib_bytes <= max_dib_bytes:
+            img = QImage.fromData(png_bytes, "PNG")
+            if img.isNull():
+                self._log.warning("qt_image_decode_failed")
+            else:
+                mime.setImageData(img)
         QGuiApplication.clipboard().setMimeData(mime)
         return True
+
+    @staticmethod
+    def _parse_png_dimensions(png_bytes: bytes) -> tuple[int, int]:
+        # PNG signature + IHDR chunk parsing (no full decode; safe for very large images).
+        if len(png_bytes) < 24:
+            return 0, 0
+        if png_bytes[:8] != b"\x89PNG\r\n\x1a\n":
+            return 0, 0
+        # IHDR must be the first chunk.
+        if png_bytes[12:16] != b"IHDR":
+            return 0, 0
+        w = int.from_bytes(png_bytes[16:20], "big", signed=False)
+        h = int.from_bytes(png_bytes[20:24], "big", signed=False)
+        return int(w), int(h)
 
     def _on_saved(self, path: str) -> None:
         self._log.info("saved=%s", path)

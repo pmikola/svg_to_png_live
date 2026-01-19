@@ -96,7 +96,9 @@ class SettingsDialog(QDialog):
         adv_form.addRow("Max SVG size (chars)", self._max_svg)
 
         self._max_dim = QSpinBox()
-        self._max_dim.setRange(512, 32768)
+        # 0 disables clamping. Keeping a clamp is safer for clipboard/memory; users can disable it.
+        self._max_dim.setRange(0, 32768)
+        self._max_dim.setSpecialValueText("Unlimited")
         self._max_dim.setValue(int(self._working.max_output_dim_px))
         adv_form.addRow("Max output dimension (px)", self._max_dim)
 
@@ -105,6 +107,14 @@ class SettingsDialog(QDialog):
         self._timeout_s.setSingleStep(0.5)
         self._timeout_s.setValue(float(self._working.conversion_timeout_s))
         adv_form.addRow("Conversion timeout (s)", self._timeout_s)
+
+        self._max_png_mb = QDoubleSpinBox()
+        self._max_png_mb.setRange(0.0, 2048.0)
+        self._max_png_mb.setSingleStep(1.0)
+        self._max_png_mb.setDecimals(1)
+        self._max_png_mb.setSpecialValueText("Unlimited")
+        self._max_png_mb.setValue(float(self._working.max_output_png_bytes) / (1024.0 * 1024.0))
+        adv_form.addRow("Max output PNG size (MB)", self._max_png_mb)
 
         self._adv_group.setLayout(adv_form)
 
@@ -179,6 +189,10 @@ class SettingsDialog(QDialog):
             self._working.max_svg_chars = int(self._max_svg.value())
             self._working.max_output_dim_px = int(self._max_dim.value())
             self._working.conversion_timeout_s = float(self._timeout_s.value())
+            self._working.max_output_png_bytes = int(round(float(self._max_png_mb.value()) * 1024.0 * 1024.0))
+
+            if self._working.max_output_dim_px != 0 and self._working.max_output_dim_px < 512:
+                raise ValueError("Max output dimension must be 0 (Unlimited) or at least 512 px.")
 
             if self._working.save_enabled and not self._working.save_dir:
                 raise ValueError("Auto-save is enabled, but no output folder is selected.")

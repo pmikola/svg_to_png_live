@@ -38,6 +38,27 @@ def _parse_hex_rgb(value: str) -> tuple[int, int, int]:
     return r, g, b
 
 
+def inject_solid_background(svg_text: str, *, background_hex: str) -> str:
+    """Inject a viewport-filling solid background into SVG markup.
+
+    This avoids decoding and re-encoding large raster images in Python. The inserted rect
+    uses percentage units so it covers the entire viewport even when the viewBox origin
+    is not (0, 0) (which is common in Mermaid-generated SVGs).
+    """
+    if not svg_text:
+        return svg_text
+    lower = svg_text.lower()
+    start = lower.find("<svg")
+    if start < 0:
+        return svg_text
+    end = svg_text.find(">", start)
+    if end < 0:
+        return svg_text
+
+    rect = f'\n  <rect x="0%" y="0%" width="100%" height="100%" fill="{background_hex}" />\n'
+    return svg_text[: end + 1] + rect + svg_text[end + 1 :]
+
+
 def _resource_base_dir() -> Path:
     if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
         return Path(getattr(sys, "_MEIPASS"))
@@ -200,12 +221,16 @@ class SvgToPngConverter:
         with self._cfg_lock:
             cfg = replace(self._cfg)
 
+        svg_for_render = inject_solid_background(svg_text, background_hex=cfg.background_hex)
         width_px, height_px = compute_output_px(
             svg_text,
             dpi=int(cfg.dpi),
             max_dim_px=int(cfg.max_output_dim_px),
         )
-        settings_key = f"dpi={int(cfg.dpi)};bg={cfg.background_hex};w={width_px};h={height_px}"
+        settings_key = (
+            f"dpi={int(cfg.dpi)};bg={cfg.background_hex};w={width_px};h={height_px};"
+            f"max_png={int(getattr(cfg, 'max_output_png_bytes', 0))}"
+        )
         cache_key = f"{svg_hash}:{hashlib.sha256(settings_key.encode('utf-8')).hexdigest()}"
 
         with self._cache_lock:
@@ -217,36 +242,53 @@ class SvgToPngConverter:
                 return ConversionResult(svg_hash=svg_hash, png_bytes=png, render_ms=0.0, width_px=w, height_px=h)
 
         t0 = time.perf_counter()
-        raw = self._renderer.render_svg_to_png_bytes(
-            svg_text,
-            width_px=width_px,
-            height_px=height_px,
-            dpi=int(cfg.dpi),
-            timeout_s=float(cfg.conversion_timeout_s),
-        )
-        composed = apply_solid_background(raw, background_hex=cfg.background_hex)
+        max_png_bytes = int(getattr(cfg, "max_output_png_bytes", 0))
 
-        # Ensure final dimensions match computed expectations even if the renderer ignored sizing flags.
-        with Image.open(BytesIO(composed)) as im:
-            if im.size != (width_px, height_px):
-                resized = im.convert("RGBA").resize((width_px, height_px), resample=Image.Resampling.LANCZOS)
-                buf = BytesIO()
-                resized.save(buf, format="PNG")
-                composed = buf.getvalue()
+        render_w = int(width_px)
+        render_h = int(height_px)
+        composed = b""
+
+        max_attempts = 6
+        for _ in range(max_attempts):
+            composed = self._renderer.render_svg_to_png_bytes(
+                svg_for_render,
+                width_px=render_w,
+                height_px=render_h,
+                dpi=int(cfg.dpi),
+                timeout_s=float(cfg.conversion_timeout_s),
+            )
+
+            if max_png_bytes <= 0 or len(composed) <= max_png_bytes:
+                break
+
+            # Roughly scale pixels by sqrt(byte_ratio) and apply a safety factor.
+            ratio = max_png_bytes / float(len(composed))
+            scale = max(0.10, min(0.95, (ratio**0.5) * 0.90))
+            next_w = max(1, int(round(render_w * scale)))
+            next_h = max(1, int(round(render_h * scale)))
+            if next_w == render_w and next_h == render_h:
+                break
+            render_w, render_h = next_w, next_h
+
+        if max_png_bytes > 0 and len(composed) > max_png_bytes:
+            raise RuntimeError(
+                f"PNG size limit exceeded ({len(composed)} bytes > {max_png_bytes} bytes). "
+                "Increase 'Max output PNG size (MB)' or lower DPI."
+            )
 
         dt_ms = (time.perf_counter() - t0) * 1000.0
 
         with self._cache_lock:
             cache = self._cache
         if cache is not None:
-            cache.put(cache_key, (composed, width_px, height_px))
+            cache.put(cache_key, (composed, render_w, render_h))
 
         self._log.info(
             "converted svg_hash=%s ms=%.1f w=%d h=%d dpi=%d bg=%s timeout=%.1fs",
             svg_hash[:10],
             dt_ms,
-            width_px,
-            height_px,
+            render_w,
+            render_h,
             int(cfg.dpi),
             cfg.background_hex,
             float(cfg.conversion_timeout_s),
@@ -255,8 +297,8 @@ class SvgToPngConverter:
             svg_hash=svg_hash,
             png_bytes=composed,
             render_ms=dt_ms,
-            width_px=width_px,
-            height_px=height_px,
+            width_px=render_w,
+            height_px=render_h,
         )
 
 
