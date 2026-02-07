@@ -168,10 +168,11 @@ class AppController(QObject):
         # Prevent clipboard rewrite loops (Qt emits dataChanged for our own write).
         self._watcher.suppress_events_for(0.5)
 
-        # For very large images, setting an uncompressed bitmap (DIB) on the clipboard can
-        # allocate hundreds of MB and cause silent paste failures. Prefer a PNG clipboard
-        # format for large outputs; add DIB only when reasonably sized.
-        max_dib_bytes = 64 * 1024 * 1024
+        # DIBv5 is the only clipboard format most Windows apps (clipboard history, Paint,
+        # Word, etc.) recognise for pasting images.  The registered "PNG" format alone is
+        # invisible to most targets, so we need to set DIBv5 even for large images.
+        # 512 MB covers images up to ~11 600 × 11 600 px (RGBA).
+        max_dib_bytes = 512 * 1024 * 1024
         expected_dib_bytes = int(width_px) * int(height_px) * 4 if width_px and height_px else 0
 
         if sys.platform.startswith("win"):

@@ -90,21 +90,21 @@ class SettingsDialog(QDialog):
 
         self._max_svg = QSpinBox()
         # Some SVGs embed base64 images and can be very large; allow users to raise the cap.
-        self._max_svg.setRange(10_000, 200_000_000)
-        self._max_svg.setSingleStep(1_000_000)
+        self._max_svg.setRange(10_000, 500_000_000)
+        self._max_svg.setSingleStep(10_000_000)
         self._max_svg.setValue(int(self._working.max_svg_chars))
         adv_form.addRow("Max SVG size (chars)", self._max_svg)
 
         self._max_dim = QSpinBox()
         # 0 disables clamping. Keeping a clamp is safer for clipboard/memory; users can disable it.
-        self._max_dim.setRange(0, 32768)
+        self._max_dim.setRange(0, 65536)
         self._max_dim.setSpecialValueText("Unlimited")
         self._max_dim.setValue(int(self._working.max_output_dim_px))
         adv_form.addRow("Max output dimension (px)", self._max_dim)
 
         self._timeout_s = QDoubleSpinBox()
-        self._timeout_s.setRange(0.5, 120.0)
-        self._timeout_s.setSingleStep(0.5)
+        self._timeout_s.setRange(0.5, 600.0)
+        self._timeout_s.setSingleStep(5.0)
         self._timeout_s.setValue(float(self._working.conversion_timeout_s))
         adv_form.addRow("Conversion timeout (s)", self._timeout_s)
 

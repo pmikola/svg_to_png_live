@@ -20,6 +20,10 @@ from threading import Lock
 
 from PIL import Image
 
+# Allow very large images – the converter already enforces dimension limits
+# via max_output_dim_px, so Pillow's decompression-bomb guard is redundant here.
+Image.MAX_IMAGE_PIXELS = None
+
 from svg_to_png_live.clipboard.watcher import ConversionResult
 from svg_to_png_live.config import AppConfig
 from svg_to_png_live.convert.cache import LruCache
@@ -313,6 +317,15 @@ class SvgToPngConverter:
         t0 = time.perf_counter()
         max_png_bytes = int(getattr(cfg, "max_output_png_bytes", 0))
 
+        # Adaptive timeout: large SVGs (many embedded images) genuinely need more time.
+        # Add ~1 s per MB of SVG text on top of the user-configured timeout.
+        base_timeout = float(cfg.conversion_timeout_s)
+        svg_mb = len(svg_for_render) / (1024.0 * 1024.0)
+        if svg_mb > 5.0:
+            effective_timeout = max(base_timeout, 10.0 + svg_mb * 1.0)
+        else:
+            effective_timeout = base_timeout
+
         render_w = int(width_px)
         render_h = int(height_px)
         composed = b""
@@ -324,7 +337,7 @@ class SvgToPngConverter:
                 width_px=render_w,
                 height_px=render_h,
                 dpi=int(cfg.dpi),
-                timeout_s=float(cfg.conversion_timeout_s),
+                timeout_s=effective_timeout,
             )
 
             if bool(getattr(cfg, "trim_border", False)):
@@ -360,14 +373,15 @@ class SvgToPngConverter:
             cache.put(cache_key, (composed, render_w, render_h))
 
         self._log.info(
-            "converted svg_hash=%s ms=%.1f w=%d h=%d dpi=%d bg=%s timeout=%.1fs",
+            "converted svg_hash=%s ms=%.1f w=%d h=%d dpi=%d bg=%s timeout=%.1fs svg_mb=%.1f",
             svg_hash[:10],
             dt_ms,
             render_w,
             render_h,
             int(cfg.dpi),
             cfg.background_hex,
-            float(cfg.conversion_timeout_s),
+            effective_timeout,
+            svg_mb,
         )
         return ConversionResult(
             svg_hash=svg_hash,

@@ -45,13 +45,13 @@ class AppConfig:
     save_dir: str = ""
 
     debounce_ms: int = 200
-    conversion_timeout_s: float = 10.0
+    conversion_timeout_s: float = 30.0
     # Large SVGs can legitimately embed base64 images and exceed tens of MB.
     # This limit exists to protect responsiveness; users can raise it in Settings → Advanced.
-    max_svg_chars: int = 50_000_000
+    max_svg_chars: int = 200_000_000
     # 0 disables pixel-dimension clamping. If you disable the clamp, set a max PNG size
     # to avoid extremely large clipboard payloads.
-    max_output_dim_px: int = 8192
+    max_output_dim_px: int = 16384
     # 0 disables size limiting. If set, the converter will downscale as needed to keep
     # the final PNG at or below this byte size.
     max_output_png_bytes: int = 0

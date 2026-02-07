@@ -19,6 +19,10 @@ from dataclasses import dataclass
 
 from PIL import Image
 
+# Allow very large images for clipboard operations – the converter already
+# enforces dimension limits via max_output_dim_px.
+Image.MAX_IMAGE_PIXELS = None
+
 if not sys.platform.startswith("win"):
     raise RuntimeError("win_clipboard is only supported on Windows")
 
@@ -157,11 +161,15 @@ def set_windows_clipboard_png(
     if also_set_dibv5:
         expected_pixel_bytes = int(width_px) * int(height_px) * 4
         if expected_pixel_bytes <= int(max_dibv5_bytes):
-            with Image.open(io.BytesIO(png_bytes)) as im:
-                rgba = im.convert("RGBA")
-                pixel_bytes = rgba.tobytes("raw", "BGRA")
+            try:
+                with Image.open(io.BytesIO(png_bytes)) as im:
+                    rgba = im.convert("RGBA")
+                    pixel_bytes = rgba.tobytes("raw", "BGRA")
+            except (MemoryError, Exception):
+                # Image too large for in-memory RGBA decode; skip DIBv5.
+                pixel_bytes = b""
 
-            if len(pixel_bytes) <= int(max_dibv5_bytes):
+            if pixel_bytes and len(pixel_bytes) <= int(max_dibv5_bytes):
                 hdr = BITMAPV5HEADER()
                 hdr.bV5Size = ctypes.sizeof(BITMAPV5HEADER)
                 hdr.bV5Width = int(width_px)
